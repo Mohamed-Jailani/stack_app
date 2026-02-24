@@ -75,7 +75,10 @@ export default function Register() {
     setIsError(false);
 
     try {
-      await axios.post("https://stackapp-production.up.railway.app/register", form);
+      await axios.post(
+        "https://stackapp-production.up.railway.app/register",
+        form,
+      );
 
       setMessage("Registration successful 🎉 Redirecting...");
       setForm({ name: "", email: "", password: "" });
@@ -120,6 +123,14 @@ export default function Register() {
           }}
           className="relative z-10 w-full max-w-md bg-white/10 backdrop-blur-2xl border border-white/20 shadow-[0_25px_60px_rgba(0,0,0,0.5)] rounded-3xl p-8 text-white"
         >
+          <div className="flex justify-center mb-2">
+            <img
+              src="/logo.png"
+              alt="Aadhaar Extractor Logo"
+              className="w-28 h-30 object-contain drop-shadow-[0_10px_25px_rgba(168,85,247,0.6)] transition-transform duration-300 hover:scale-110"
+            />
+          </div>
+          
           <h2 className="text-3xl font-bold text-center mb-2">
             Create Account
           </h2>
