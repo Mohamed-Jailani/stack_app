@@ -69,7 +69,7 @@ export default function Dashboard() {
       const token = localStorage.getItem("token");
 
       const res = await axios.post(
-        "http://127.0.0.1:8000/upload-aadhaar",
+        "https://stackapp-production.up.railway.app/upload-aadhaar",
         formData,
         {
           headers: {

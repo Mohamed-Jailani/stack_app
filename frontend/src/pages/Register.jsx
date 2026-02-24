@@ -75,7 +75,7 @@ export default function Register() {
     setIsError(false);
 
     try {
-      await axios.post("http://127.0.0.1:8000/register", form);
+      await axios.post("https://stackapp-production.up.railway.app/register", form);
 
       setMessage("Registration successful 🎉 Redirecting...");
       setForm({ name: "", email: "", password: "" });

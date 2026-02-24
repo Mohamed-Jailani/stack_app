@@ -74,7 +74,7 @@ export default function Login() {
     setIsError(false);
 
     try {
-      const res = await axios.post("http://127.0.0.1:8000/login", form);
+      const res = await axios.post("https://stackapp-production.up.railway.app/login", form);
 
       localStorage.setItem("token", res.data.access_token);
 

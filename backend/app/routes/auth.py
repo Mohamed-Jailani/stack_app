@@ -3,6 +3,8 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 from google.cloud import vision
+from google.oauth2 import service_account
+import json
 import re
 import os
 
@@ -13,12 +15,26 @@ from app.core.security import hash_password, verify_password, create_access_toke
 from app.core.config import SECRET_KEY, ALGORITHM
 
 
-# Set Google credentials
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "service-account.json"
-
 router = APIRouter()
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+
+# -----------------------------
+# Google Vision Client (Production Safe)
+# -----------------------------
+def get_vision_client():
+    credentials_json = os.getenv("GOOGLE_CREDENTIALS")
+
+    if not credentials_json:
+        raise Exception("Google credentials not found in environment variables")
+
+    credentials_dict = json.loads(credentials_json)
+
+    credentials = service_account.Credentials.from_service_account_info(
+        credentials_dict
+    )
+
+    return vision.ImageAnnotatorClient(credentials=credentials)
 
 
 # -----------------------------
@@ -106,10 +122,13 @@ def upload_aadhaar(
     try:
         image_bytes = file.file.read()
 
-        client = vision.ImageAnnotatorClient()
+        client = get_vision_client()
         image = vision.Image(content=image_bytes)
 
         response = client.text_detection(image=image)
+
+        if response.error.message:
+            raise Exception(response.error.message)
 
         texts = response.text_annotations
 
@@ -117,8 +136,6 @@ def upload_aadhaar(
             raise HTTPException(status_code=400, detail="No text detected")
 
         extracted_text = texts[0].description
-
-        print("Extracted Text:", extracted_text)
 
         # Aadhaar pattern (with or without spaces)
         aadhaar_match = re.search(r"\d{4}\s?\d{4}\s?\d{4}", extracted_text)
@@ -141,5 +158,5 @@ def upload_aadhaar(
         }
 
     except Exception as e:
-        print("ERROR:", str(e))
+        print("Vision API Error:", str(e))
         raise HTTPException(status_code=500, detail="Vision API processing failed")
