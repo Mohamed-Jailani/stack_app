@@ -154,7 +154,12 @@ def upload_aadhaar(
         # Save cropped image
         filename = f"{uuid.uuid4()}.jpg"
         file_path = f"uploads/{filename}"
-        cropped_face.save(file_path)
+
+        # Convert if needed
+        if cropped_face.mode in ("RGBA", "P"):
+         cropped_face = cropped_face.convert("RGB")
+
+         cropped_face.save(file_path, "JPEG")
 
         # Store in DB
         current_user.face_image = file_path
