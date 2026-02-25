@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
+const BACKEND_URL = "https://stackapp-production.up.railway.app";
+
 export default function Dashboard() {
   const [file, setFile] = useState(null);
   const [details, setDetails] = useState(null);
@@ -11,7 +13,6 @@ export default function Dashboard() {
   const [cardStyle, setCardStyle] = useState({});
 
   /* ---------------- Spotlight Background ---------------- */
-
   useEffect(() => {
     const handleMouseMove = (e) => {
       setMousePosition({
@@ -25,19 +26,13 @@ export default function Dashboard() {
   }, []);
 
   /* ---------------- 3D Tilt Effect ---------------- */
-
   const handleCardMove = (e) => {
-    const card = e.currentTarget;
-    const rect = card.getBoundingClientRect();
-
+    const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-
-    const rotateX = -(y - centerY) / 18;
-    const rotateY = (x - centerX) / 18;
+    const rotateX = -(y - rect.height / 2) / 18;
+    const rotateY = (x - rect.width / 2) / 18;
 
     setCardStyle({
       transform: `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.02)`,
@@ -51,7 +46,6 @@ export default function Dashboard() {
   };
 
   /* ---------------- Upload Handler ---------------- */
-
   const handleUpload = async () => {
     if (!file) {
       setError("Please select a file ❗");
@@ -68,15 +62,11 @@ export default function Dashboard() {
 
       const token = localStorage.getItem("token");
 
-      const res = await axios.post(
-        "https://stackapp-production.up.railway.app/upload-aadhaar",
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      const res = await axios.post(`${BACKEND_URL}/upload-aadhaar`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      );
+      });
 
       setDetails(res.data);
     } catch (err) {
@@ -89,7 +79,6 @@ export default function Dashboard() {
   };
 
   /* ---------------- UI ---------------- */
-
   return (
     <div
       className="min-h-screen flex items-center justify-center relative overflow-hidden px-4"
@@ -99,7 +88,6 @@ export default function Dashboard() {
           rgba(168,85,247,0.35),
           transparent 80%
         ), linear-gradient(to bottom right, #0f172a, #1e1b4b)`,
-        transition: "background 0.1s ease-out",
       }}
     >
       <div
@@ -114,36 +102,23 @@ export default function Dashboard() {
             transition: "transform 0.15s ease-out",
             transformStyle: "preserve-3d",
           }}
-          className="relative z-10 w-full max-w-md bg-white/10 backdrop-blur-2xl border border-white/20 shadow-[0_25px_60px_rgba(0,0,0,0.5)] rounded-3xl p-8 text-white"
+          className="relative z-10 w-full max-w-md bg-white/10 backdrop-blur-2xl border border-white/20 shadow-xl rounded-3xl p-8 text-white"
         >
-          <div className="flex justify-center mb-2">
-            <img
-              src="/logo.png"
-              alt="Aadhaar Extractor Logo"
-              className="w-28 h-30 object-contain drop-shadow-[0_10px_25px_rgba(168,85,247,0.6)] transition-transform duration-300 hover:scale-110"
-            />
-          </div>
-
           <h2 className="text-2xl font-bold mb-6 text-center">
             Upload Aadhaar
           </h2>
 
           {/* File Input */}
-          <label className="block mb-4">
-            <span className="block mb-2 text-sm text-gray-300">
-              Select Aadhaar File
-            </span>
-            <input
-              type="file"
-              onChange={(e) => setFile(e.target.files[0])}
-              className="w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 
-                         file:rounded-lg file:border-0 
-                         file:text-sm file:font-semibold
-                         file:bg-purple-600 file:text-white
-                         hover:file:bg-purple-700
-                         bg-white/10 border border-white/20 rounded-lg cursor-pointer"
-            />
-          </label>
+          <input
+            type="file"
+            onChange={(e) => setFile(e.target.files[0])}
+            className="w-full mb-4 text-sm file:mr-4 file:py-2 file:px-4 
+                       file:rounded-lg file:border-0 
+                       file:text-sm file:font-semibold
+                       file:bg-purple-600 file:text-white
+                       hover:file:bg-purple-700
+                       bg-white/10 border border-white/20 rounded-lg cursor-pointer"
+          />
 
           {/* Upload Button */}
           <button
@@ -152,7 +127,7 @@ export default function Dashboard() {
             className={`w-full py-3 rounded-lg font-medium transition duration-300 ${
               loading
                 ? "bg-gray-500 cursor-not-allowed"
-                : "bg-purple-600 hover:bg-purple-700 hover:shadow-lg hover:shadow-purple-500/40"
+                : "bg-purple-600 hover:bg-purple-700"
             }`}
           >
             {loading ? "Uploading..." : "Upload"}
@@ -163,20 +138,33 @@ export default function Dashboard() {
             <p className="mt-4 text-center text-sm text-red-400">{error}</p>
           )}
 
-          {/* Aadhaar Details */}
+          {/* Extracted Details */}
           {details && (
-            <div className="mt-6 bg-white/10 border border-white/20 p-4 rounded-xl">
-              <img src={`https://stackapp-production.up.railway.app/${face_image}`} />
-              <p className="mb-2">
-                <span className="font-semibold text-purple-300">
-                  Aadhaar Number:
-                </span>{" "}
-                {details.aadhaar_number}
-              </p>
-              <p>
-                <span className="font-semibold text-purple-300">DOB:</span>{" "}
-                {details.dob}
-              </p>
+            <div className="mt-6 bg-white/10 border border-white/20 p-4 rounded-xl space-y-3">
+              {/* Face Image */}
+              {details.face_image && (
+                <img
+                  src={`${BACKEND_URL}/${details.face_image}`}
+                  alt="Extracted Face"
+                  className="w-32 h-32 object-cover rounded-xl border border-purple-400 mx-auto"
+                />
+              )}
+
+              {details.aadhaar_number && (
+                <p>
+                  <span className="font-semibold text-purple-300">
+                    Aadhaar Number:
+                  </span>{" "}
+                  {details.aadhaar_number}
+                </p>
+              )}
+
+              {details.dob && (
+                <p>
+                  <span className="font-semibold text-purple-300">DOB:</span>{" "}
+                  {details.dob}
+                </p>
+              )}
             </div>
           )}
         </div>
