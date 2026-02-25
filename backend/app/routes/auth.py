@@ -98,24 +98,6 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 # -----------------------------
 # Login
 # -----------------------------
-@router.post("/login")
-def login(user: UserLogin, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.email == user.email).first()
-
-    if not db_user or not verify_password(user.password, db_user.password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    token = create_access_token({"sub": db_user.email})
-
-    return {
-        "access_token": token,
-        "token_type": "bearer"
-    }
-
-
-# -----------------------------
-# Upload Aadhaar (Google Vision OCR)
-# -----------------------------
 @router.post("/upload-aadhaar")
 def upload_aadhaar(
     file: UploadFile = File(...),
@@ -124,26 +106,40 @@ def upload_aadhaar(
 ):
     try:
         image_bytes = file.file.read()
-
         client = get_vision_client()
 
         image = vision.Image(content=image_bytes)
 
-        # Face detection
-        response = client.face_detection(image=image)
-        faces = response.face_annotations
+        # -----------------------------
+        # TEXT DETECTION (OCR)
+        # -----------------------------
+        text_response = client.text_detection(image=image)
+        texts = text_response.text_annotations
+
+        extracted_text = ""
+        if texts:
+            extracted_text = texts[0].description
+
+        # Aadhaar number (12 digits with or without spaces)
+        aadhaar_match = re.search(r"\d{4}\s?\d{4}\s?\d{4}", extracted_text)
+
+        # DOB pattern
+        dob_match = re.search(r"\d{2}/\d{2}/\d{4}", extracted_text)
+
+        # -----------------------------
+        # FACE DETECTION
+        # -----------------------------
+        face_response = client.face_detection(image=image)
+        faces = face_response.face_annotations
 
         if not faces:
             raise HTTPException(status_code=400, detail="No face detected")
 
-        # Get first detected face
         face = faces[0]
         vertices = face.bounding_poly.vertices
 
-        # Open image with Pillow
         img = Image.open(io.BytesIO(image_bytes))
 
-        # Extract bounding box
         left = vertices[0].x
         top = vertices[0].y
         right = vertices[2].x
@@ -151,25 +147,35 @@ def upload_aadhaar(
 
         cropped_face = img.crop((left, top, right, bottom))
 
-        # Save cropped image
-        filename = f"{uuid.uuid4()}.jpg"
-        file_path = f"uploads/{filename}"
-
         # Convert if needed
         if cropped_face.mode in ("RGBA", "P"):
-         cropped_face = cropped_face.convert("RGB")
+            cropped_face = cropped_face.convert("RGB")
 
-         cropped_face.save(file_path, "JPEG")
+        # Save image
+        filename = f"{uuid.uuid4()}.jpg"
+        file_path = f"uploads/{filename}"
+        cropped_face.save(file_path, "JPEG")
 
-        # Store in DB
+        # -----------------------------
+        # SAVE TO DATABASE
+        # -----------------------------
+        if aadhaar_match:
+            current_user.aadhaar_number = aadhaar_match.group()
+
+        if dob_match:
+            current_user.dob = dob_match.group()
+
         current_user.face_image = file_path
+
         db.commit()
         db.refresh(current_user)
 
         return {
-            "face_image": file_path
+            "aadhaar_number": current_user.aadhaar_number,
+            "dob": current_user.dob,
+            "face_image": current_user.face_image
         }
 
     except Exception as e:
-        print("Face extraction error:", str(e))
-        raise HTTPException(status_code=500, detail="Face extraction failed")
+        print("Upload error:", str(e))
+        raise HTTPException(status_code=500, detail="Aadhaar processing failed")
