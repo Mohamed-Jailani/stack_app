@@ -166,6 +166,7 @@ export default function Dashboard() {
           {/* Aadhaar Details */}
           {details && (
             <div className="mt-6 bg-white/10 border border-white/20 p-4 rounded-xl">
+              <img src={`https://stackapp-production.up.railway.app/${face_image}`} />
               <p className="mb-2">
                 <span className="font-semibold text-purple-300">
                   Aadhaar Number:
