@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 from google.cloud import vision
 from google.oauth2 import service_account
+from PIL import Image
+import io
+import uuid
 import json
 import re
 import os
@@ -123,40 +126,45 @@ def upload_aadhaar(
         image_bytes = file.file.read()
 
         client = get_vision_client()
+
         image = vision.Image(content=image_bytes)
 
-        response = client.text_detection(image=image)
+        # Face detection
+        response = client.face_detection(image=image)
+        faces = response.face_annotations
 
-        if response.error.message:
-            raise Exception(response.error.message)
+        if not faces:
+            raise HTTPException(status_code=400, detail="No face detected")
 
-        texts = response.text_annotations
+        # Get first detected face
+        face = faces[0]
+        vertices = face.bounding_poly.vertices
 
-        if not texts:
-            raise HTTPException(status_code=400, detail="No text detected")
+        # Open image with Pillow
+        img = Image.open(io.BytesIO(image_bytes))
 
-        extracted_text = texts[0].description
+        # Extract bounding box
+        left = vertices[0].x
+        top = vertices[0].y
+        right = vertices[2].x
+        bottom = vertices[2].y
 
-        # Aadhaar pattern (with or without spaces)
-        aadhaar_match = re.search(r"\d{4}\s?\d{4}\s?\d{4}", extracted_text)
+        cropped_face = img.crop((left, top, right, bottom))
 
-        # DOB pattern
-        dob_match = re.search(r"\d{2}/\d{2}/\d{4}", extracted_text)
+        # Save cropped image
+        filename = f"{uuid.uuid4()}.jpg"
+        file_path = f"uploads/{filename}"
+        cropped_face.save(file_path)
 
-        if aadhaar_match:
-            current_user.aadhaar_number = aadhaar_match.group()
-
-        if dob_match:
-            current_user.dob = dob_match.group()
-
+        # Store in DB
+        current_user.face_image = file_path
         db.commit()
         db.refresh(current_user)
 
         return {
-            "aadhaar_number": current_user.aadhaar_number,
-            "dob": current_user.dob
+            "face_image": file_path
         }
 
     except Exception as e:
-        print("Vision API Error:", str(e))
-        raise HTTPException(status_code=500, detail="Vision API processing failed")
+        print("Face extraction error:", str(e))
+        raise HTTPException(status_code=500, detail="Face extraction failed")

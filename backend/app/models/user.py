@@ -11,3 +11,4 @@ class User(Base):
     password: Mapped[str] = mapped_column(String(255))
     aadhaar_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     dob: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    face_image = mapped_column(String, nullable=True)

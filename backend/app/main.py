@@ -3,10 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routes.auth import router as auth_router
 from app.models.base import Base
 from app.database.session import engine
+from fastapi.staticfiles import StaticFiles
+
 
 app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
+
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
